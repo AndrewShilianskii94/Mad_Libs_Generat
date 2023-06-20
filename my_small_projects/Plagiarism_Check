@@ -1,0 +1,54 @@
+import os
+from google.cloud import translate
+from nltk import sent_tokenize, word_tokenize
+from nltk.corpus import stopwords
+from nltk.stem import PorterStemmer
+
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "путь_к_вашему_ключу_API.json"
+
+def preprocess_text(text):
+    sentences = sent_tokenize(text)
+    tokens = [word_tokenize(sentence.lower()) for sentence in sentences]
+    
+    stop_words = set(stopwords.words("язык_автора"))
+    stemmer = PorterStemmer()
+    preprocessed_tokens = []
+    for sentence_tokens in tokens:
+        filtered_tokens = [stemmer.stem(token) for token in sentence_tokens if token.isalnum() and token not in stop_words]
+        preprocessed_tokens.extend(filtered_tokens)
+    
+    return preprocessed_tokens
+
+def calculate_similarity(tokens1, tokens2):
+    total_words = len(tokens1)
+    matched_words = sum(token in tokens1 for token in tokens2)
+    similarity_score = (matched_words / total_words) * 100
+    
+    return similarity_score
+
+def check_plagiarism(original_text, author_text):
+    translate_client = translate.TranslationServiceClient()
+    
+    target_language = "язык_автора"
+    parent = "projects/ваш_проект/locations/global"
+    response = translate_client.translate_text(
+        parent=parent,
+        contents=[original_text],
+        mime_type="text/plain",
+        target_language_code=target_language
+    )
+    translated_text = response.translations[0].translated_text
+    
+    original_tokens = preprocess_text(original_text)
+    translated_tokens = preprocess_text(translated_text)
+    
+    plagiarism_score = calculate_similarity(original_tokens, translated_tokens)
+    
+    return plagiarism_score
+
+if __name__ == "__main__":
+    original_text = "Оригинальный текст"
+    author_text = "Текст автора"
+    
+    plagiarism_score = check_plagiarism(original_text, author_text)
+    print("Коэффициент плагиата: {:.2f}%".format(plagiarism_score))
